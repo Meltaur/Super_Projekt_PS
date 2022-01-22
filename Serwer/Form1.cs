@@ -31,12 +31,56 @@ namespace Serwer
 
         async private void Start_Click(object sender, EventArgs e)
         {
+            //tworzenie serwera
             try
             {
                 server = new TcpListener(IPAddress.Parse("127.0.0.1"), Convert.ToInt32("11000"));
                 server.Start();
                 setText("Serwer rozpoczął pracę");
-                klient = await server.AcceptTcpClientAsync();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.ToString(), "Błąd");
+            }
+            //tworzenie klienta
+            klient = await server.AcceptTcpClientAsync();
+            setText("Klient połączył się");
+            
+            //nasłuchiwanie wiadomości
+            if (backgroundWorker1.IsBusy != true)
+            {
+                // Start the asynchronous operation.
+                flaga = true;
+                backgroundWorker1.RunWorkerAsync();
+            }
+        }
+
+        private void setText(string text)
+        {
+            if (Komunikaty.InvokeRequired)
+            {
+                Invoke(new Update(setText), new object[] { text });
+            }
+            else
+            {
+                Komunikaty.Items.Add(text);
+            }
+        }
+
+        private void Komunikaty_SelectedIndexChanged(object sender, EventArgs e)
+        {
+
+        }
+
+        private async void Form1_Load(object sender, EventArgs e)
+        {
+            
+        }
+
+        private async void backgroundWorker1_DoWork(object sender, DoWorkEventArgs e)
+        {
+            try
+            {
                 IPEndPoint IP = (IPEndPoint)klient.Client.RemoteEndPoint;
                 setText("Klient połączył się");
                 netStream = klient.GetStream();
@@ -82,28 +126,6 @@ namespace Serwer
             {
                 MessageBox.Show(ex.ToString(), "Błąd");
             }
-        }
-
-           private void setText(string text)
-        {
-            if (Komunikaty.InvokeRequired)
-            {
-                Invoke(new Update(setText), new object[] { text });
-            }
-            else
-            {
-                Komunikaty.Items.Add(text);
-            }
-        }
-
-        private void Komunikaty_SelectedIndexChanged(object sender, EventArgs e)
-        {
-
-        }
-
-        private async void Form1_Load(object sender, EventArgs e)
-        {
-            
         }
     }
 }
