@@ -152,8 +152,8 @@ namespace Serwer
                 Komunikaty.Items.Add("Downloading File" + fileName + "  from " + myStringWebResource + " .......\n\n");
                 // Download the Web resource and save it into the current filesystem folder.
                 myWebClient.DownloadFile(myStringWebResource, fileName);
-                Komunikaty.Items.Add("Successfully Downloaded File " + fileName + " from: " + myStringWebResource);
-                Komunikaty.Items.Add("\nDownloaded file saved in the following file system folder:\n\t" + Application.StartupPath);
+                //Komunikaty.Items.Add("Successfully Downloaded File " + fileName + " from: " + myStringWebResource);
+                //Komunikaty.Items.Add("\nDownloaded file saved in the following file system folder:\n\t" + Application.StartupPath);
                 var path = Application.StartupPath + @"\"+  fileName; // Habeeb, "Dubai Media City, Dubai"
                 Komunikaty.Items.Add("Path: " + path);
                 filePath = path;
