@@ -24,8 +24,10 @@ namespace Serwer
         private TcpClient klient;
         private NetworkStream netStream;
         private delegate void Update(string s);
+        MySqlDataAdapter adapter;
+        MySqlConnection conn;
         bool flaga = false;
-        MySqlConnection connection = new MySqlConnection("server=db4free.net;port=3306;username=siatek;password=projektps;database=projektps");
+        //MySqlConnection connection = new MySqlConnection("server=db4free.net;port=3306;username=siatek;password=projektps;database=projektps");
         public Form1()
         {
             InitializeComponent();
@@ -44,23 +46,19 @@ namespace Serwer
             {
                 MessageBox.Show(ex.ToString(), "Błąd");
             }
-            //pobranie danych csv
-            string term_file = @"C:\Users\mbuko\source\repos\PROJEKT PS SERWER\bin\Debug\netcoreapp3.1\England-Championship-fixture-2021-2022.csv";
-            pobierz_wyniki();
-            if (!(File.Exists(term_file)))
-            {
-                pobierz_terminarz();
-            }
-            else
-            {
-                var path = term_file; // Habeeb, "Dubai Media City, Dubai"
-                wyswietl_csv(term_file);
-            }
+            // połączenie do sql
             db_connect();
+
+            //pobranie danych csv i wgranie danych do db
+            string term_file = @"C:\Users\mbuko\source\repos\PROJEKT PS SERWER\bin\Debug\epl-2021-GMTStandardTime.csv";
+            setText('pobieram najnowaszą baze danych...');
+            string term_path = pobierz_terminarz();
+            setText("uaktualniam baze danych...");
+            update_terminarz_db(term_path);
+
             //tworzenie klienta
             klient = await server.AcceptTcpClientAsync();
             setText("Klient połączył się");
-            
             
             //nasłuchiwanie wiadomości
             if (backgroundWorker1.IsBusy != true)
@@ -112,7 +110,6 @@ namespace Serwer
 
                     DataTable table = new DataTable();
 
-                    MySqlDataAdapter adapter = new MySqlDataAdapter();
                     MySqlCommand command = new MySqlCommand("select * from `users` where username ='" + json.Username.ToString() + "' and password = '" + json.Password.ToString() + "'", db.getConnection());
 
                     command.Parameters.Add("@usn", MySqlDbType.VarChar).Value = json.Username.ToString();
@@ -145,8 +142,8 @@ namespace Serwer
         }
         public string pobierz_terminarz()
         {
-            string remoteUri = "https://cdn.bettingexpert.com/assets/";
-            string fileName = "England-Championship-fixture-2021-2022.csv", myStringWebResource = null;
+            string remoteUri = "https://fixturedownload.com/download/";
+            string fileName = "epl-2021-GMTStandardTime.csv", myStringWebResource = null;
             string filePath;
             // Create a new WebClient instance.
             using (WebClient myWebClient = new WebClient())
@@ -157,34 +154,93 @@ namespace Serwer
                 myWebClient.DownloadFile(myStringWebResource, fileName);
                 Komunikaty.Items.Add("Successfully Downloaded File " + fileName + " from: " + myStringWebResource);
                 Komunikaty.Items.Add("\nDownloaded file saved in the following file system folder:\n\t" + Application.StartupPath);
-                var path = Application.StartupPath + fileName; // Habeeb, "Dubai Media City, Dubai"
-                Komunikaty.Items.Add(path);
+                var path = Application.StartupPath + @"\"+  fileName; // Habeeb, "Dubai Media City, Dubai"
+                Komunikaty.Items.Add("Path: " + path);
                 filePath = path;
             }
             return filePath;
         }
-        public string pobierz_wyniki()
+        private void zapisz_terminarz_db(string path)
         {
-            string remoteUri = "https://www.football-data.co.uk/mmz4281/2122/";
-            string fileName = "E0.csv", myStringWebResource = null;
-            string filePath;
-            // Create a new WebClient instance.
-            using (WebClient myWebClient = new WebClient())
+            string Date;
+            try
             {
-                // Concatenate the domain with the Web resource filename.
-                myStringWebResource = remoteUri + fileName;
-                Komunikaty.Items.Add("Downloading File" + fileName + "  from " + myStringWebResource + " .......\n\n");
-                // Download the Web resource and save it into the current filesystem folder.
-                myWebClient.DownloadFile(myStringWebResource, fileName);
-                Komunikaty.Items.Add("Successfully Downloaded File " + fileName + " from: " + myStringWebResource);
-                Komunikaty.Items.Add("\nDownloaded file saved in the following file system folder:\n\t" + Application.StartupPath);
+               string sql_add_term = "CREATE TABLE terminarz (" +
+                    "MatchNumber varchar(255), " +
+                    "RoundNumber varchar(255)," +
+                    "Date varchar(255), " +
+                    "HomeTeam varchar(255)," +
+                    "AwayTeam varchar(255)," +
+                    "Result varchar(255))";
 
+                MySqlCommand cmd_add_term = new MySqlCommand(sql_add_term, conn);
+                cmd_add_term.ExecuteNonQuery();
+                using (TextFieldParser csvParser = new TextFieldParser(path))
+                {
+                    csvParser.CommentTokens = new string[] { "#" };
+                    csvParser.SetDelimiters(new string[] { "," });
+                    csvParser.HasFieldsEnclosedInQuotes = true;
+                    
+                    // Skip the row with the column names
+                    csvParser.ReadLine();
+                    while (!csvParser.EndOfData)
+                     {
+                        // Read current line fields, pointer moves to the next line.
+                        string fields = csvParser.ReadLine();
+                        var values = fields.Split(',');
+                        string sql = "INSERT INTO terminarz VALUES('" + values[0].ToString() + "','" + values[1].ToString() + "','" + values[2].ToString() + "','" + values[4].ToString() +  "','" + values[5].ToString() + "','" + values[6].ToString() +"')";
 
-                var path = Application.StartupPath + fileName; // Habeeb, "Dubai Media City, Dubai"
-                Komunikaty.Items.Add(path);
-                filePath = path;
+                        MySqlCommand cmd = new MySqlCommand(sql, conn);
+                        cmd.ExecuteNonQuery();
+                    }
+
+                }
             }
-            return filePath;
+            catch(Exception ex)
+            {
+                MessageBox.Show(ex.ToString() + "\n");
+            }
+            Komunikaty.Items.Add("dodano terminarz do DB");
+        }
+        private void update_terminarz_db(string path)
+        {
+            string Date;
+            try
+            {
+                using (TextFieldParser csvParser = new TextFieldParser(path))
+                {
+                    csvParser.CommentTokens = new string[] { "#" };
+                    csvParser.SetDelimiters(new string[] { "," });
+                    csvParser.HasFieldsEnclosedInQuotes = true;
+
+                    // Skip the row with the column names
+                    csvParser.ReadLine();
+                    while (!csvParser.EndOfData)
+                    {
+                        // Read current line fields, pointer moves to the next line.
+                        string fields = csvParser.ReadLine();
+                        var values = fields.Split(',');
+                        string sql = "UPDATE terminarz " +
+                            "SET " +
+                    "RoundNumber  = '" + values[1].ToString() + "'" +
+                    ", Date  = '" + values[2].ToString() + "'" +
+                    ", HomeTeam = '" + values[4].ToString() + "'" +
+                    ", AwayTeam = '" + values[5].ToString() + "'" +
+                    ", Result = '" + values[6].ToString() + "'" +
+                            " WHERE MatchNumber = '" + values[0].ToString() + "'";
+
+
+                        MySqlCommand cmd = new MySqlCommand(sql, conn);
+                        cmd.ExecuteNonQuery();
+                    }
+
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.ToString() + "\n");
+            }
+            Komunikaty.Items.Add("baza uaktualniona");
         }
         public void wyswietl_csv(string path)
         {
@@ -208,7 +264,32 @@ namespace Serwer
         }
         public void db_connect()
         {
-            MySqlConnection connection = new MySqlConnection("server=db4free.net;port=3306;username=siatek;password=projektps;database=projektps");
+
+            //MySqlConnection connection = new MySqlConnection("server=db4free.net;port=3306;username=siatek;password=projektps;database=projektps");
+            try
+            {
+                string connStr = "server=db4free.net;port=3306;username=siatek;password=projektps;database=projektps";
+                conn = new MySqlConnection(connStr);
+                try
+                {
+                    Komunikaty.Items.Add("Connecting to MySQL...");
+                    conn.Open();
+
+                }
+                catch (Exception ee)
+                {
+                    Komunikaty.Items.Add("error \n");
+                    Komunikaty.Items.Add(ee.ToString());
+                }
+            }
+            catch (Exception ex)
+            {
+                Komunikaty.Items.Add(ex);
+            }
+        }
+        public void db_close(MySqlConnection conn)
+        {
+            conn.Close();
         }
         public void db_send()
         {

@@ -48,7 +48,7 @@
             this.Komunikaty.FormattingEnabled = true;
             this.Komunikaty.Location = new System.Drawing.Point(70, 195);
             this.Komunikaty.Name = "Komunikaty";
-            this.Komunikaty.Size = new System.Drawing.Size(636, 225);
+            this.Komunikaty.Size = new System.Drawing.Size(912, 225);
             this.Komunikaty.TabIndex = 1;
             this.Komunikaty.SelectedIndexChanged += new System.EventHandler(this.Komunikaty_SelectedIndexChanged);
             // 
@@ -60,7 +60,7 @@
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(800, 450);
+            this.ClientSize = new System.Drawing.Size(994, 450);
             this.Controls.Add(this.Komunikaty);
             this.Controls.Add(this.Start);
             this.Name = "Form1";
