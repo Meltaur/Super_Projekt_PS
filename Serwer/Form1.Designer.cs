@@ -52,6 +52,10 @@
             this.Komunikaty.TabIndex = 1;
             this.Komunikaty.SelectedIndexChanged += new System.EventHandler(this.Komunikaty_SelectedIndexChanged);
             // 
+            // backgroundWorker1
+            // 
+            this.backgroundWorker1.DoWork += new System.ComponentModel.DoWorkEventHandler(this.backgroundWorker1_DoWork);
+            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
