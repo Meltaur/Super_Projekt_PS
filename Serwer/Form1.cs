@@ -24,8 +24,10 @@ namespace Serwer
         private TcpClient klient;
         private NetworkStream netStream;
         private delegate void Update(string s);
+        MySqlDataAdapter adapter;
+        MySqlConnection conn;
         bool flaga = false;
-        MySqlConnection connection = new MySqlConnection("server=db4free.net;port=3306;username=siatek;password=projektps;database=projektps");
+        //MySqlConnection connection = new MySqlConnection("server=db4free.net;port=3306;username=siatek;password=projektps;database=projektps");
         public Form1()
         {
             InitializeComponent();
@@ -57,8 +59,7 @@ namespace Serwer
             //tworzenie klienta
             klient = await server.AcceptTcpClientAsync();
             setText("Klient połączył się");
-            
-            
+
             //nasłuchiwanie wiadomości
             if (backgroundWorker1.IsBusy != true)
             {
@@ -87,7 +88,7 @@ namespace Serwer
 
         private async void Form1_Load(object sender, EventArgs e)
         {
-            
+
         }
 
         private async void backgroundWorker1_DoWork(object sender, DoWorkEventArgs e)
