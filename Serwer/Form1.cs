@@ -51,7 +51,7 @@ namespace Serwer
 
             //pobranie danych csv i wgranie danych do db
             string term_file = @"C:\Users\mbuko\source\repos\PROJEKT PS SERWER\bin\Debug\epl-2021-GMTStandardTime.csv";
-            setText('pobieram najnowaszą baze danych...');
+            setText("pobieram najnowaszą baze danych...");
             string term_path = pobierz_terminarz();
             setText("uaktualniam baze danych...");
             update_terminarz_db(term_path);
@@ -114,7 +114,7 @@ namespace Serwer
 
                     command.Parameters.Add("@usn", MySqlDbType.VarChar).Value = json.Username.ToString();
                     command.Parameters.Add("@pass", MySqlDbType.VarChar).Value = json.Password.ToString();
-
+                    adapter = new MySqlDataAdapter();
                     adapter.SelectCommand = command;
 
                     adapter.Fill(table);
