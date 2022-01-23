@@ -51,7 +51,7 @@ namespace Serwer
 
             //pobranie danych csv i wgranie danych do db
             string term_file = @"C:\Users\mbuko\source\repos\PROJEKT PS SERWER\bin\Debug\epl-2021-GMTStandardTime.csv";
-            setText('pobieram najnowaszą baze danych...');
+            setText("pobieram najnowaszą baze danych...");
             string term_path = pobierz_terminarz();
             setText("uaktualniam baze danych...");
             update_terminarz_db(term_path);
@@ -88,7 +88,10 @@ namespace Serwer
 
         private async void Form1_Load(object sender, EventArgs e)
         {
-
+            getBets();
+            //Console.WriteLine("*****");
+            getScores();
+            VerifyBet();
         }
 
         private async void backgroundWorker1_DoWork(object sender, DoWorkEventArgs e)
@@ -133,6 +136,7 @@ namespace Serwer
                         netStream = klient.GetStream();
                         netStream.Write(data, 0, data.Length);
                     }
+
                 }
             }
             catch (Exception ex)
@@ -295,5 +299,120 @@ namespace Serwer
         {
 
         }
+
+        public List<char> getBets()
+        {
+            var typy =  new List<char>();
+
+            DB db = new DB();
+
+            conn = db.getConnection();
+
+            MySqlDataAdapter adapter = new MySqlDataAdapter("select typ from obstawienia1;", conn);
+
+            DataTable table = new DataTable();
+
+            adapter.Fill(table);
+
+            foreach (DataRow dataRow in table.Rows)
+            {
+                foreach (var item in dataRow.ItemArray)
+                {
+                    //Console.WriteLine(item);
+                    typy.Add(Convert.ToChar(item));
+                }
+            }
+
+            //typy.ForEach(Console.WriteLine);
+            return typy;
+        }
+
+        public List<char> getScores()
+        {
+            var wyniki = new List<string>();
+
+            DB db = new DB();
+
+            conn = db.getConnection();
+
+            MySqlDataAdapter adapter = new MySqlDataAdapter("select result from terminarz;", conn);
+            //MySqlDataAdapter adapter2 = new MySqlDataAdapter("select matchnumber from terminarz;", conn);
+
+            DataTable table2 = new DataTable();
+            //DataTable table3 = new DataTable();
+
+            adapter.Fill(table2);
+            //adapter2.Fill(table3);
+
+            //table3.Merge(table2);
+
+            
+            var rezultaty = new List<char>();
+
+            foreach (DataRow dataRow in table2.Rows)
+            {
+                foreach (var item in dataRow.ItemArray)
+                {
+                    //Console.WriteLine(item);
+                    if (item!= "")
+                    {
+                        string item_string = item.ToString();
+
+                        wyniki.Add(item_string);
+
+                    }
+                }
+            }
+            
+            foreach (string element in wyniki)
+            {
+                string[] nowy = element.Split('-');
+
+                if(Convert.ToInt16(nowy[0]) > Convert.ToInt16(nowy[1]))
+                {
+                    rezultaty.Add('w');
+                }
+                else if (Convert.ToInt16(nowy[0]) == Convert.ToInt16(nowy[1]))
+                {
+                    rezultaty.Add('d');
+                }
+                else
+                {
+                    rezultaty.Add('l');
+
+                }
+            }
+            rezultaty.ForEach(Console.WriteLine);
+            return rezultaty;
+        }
+
+        public int VerifyBet()
+        {
+            int points = 0;
+
+            for (int i = 0; i < getBets().Count; i++)
+            {
+                if(getBets()[i] == getScores()[i])
+                {
+                    points += 10;
+                }
+                else
+                {
+                    points = points;
+                }
+            }
+            //Console.Write(points);
+            listBox1.Items.Add(points);
+            return points;
+        }
+
+        public class Bet
+        {
+            public string User { get; set; }
+            public int ID { get; set; }
+            public char Zaklad { get; set; }
+        }
+
+
     }
 }
