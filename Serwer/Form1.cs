@@ -14,6 +14,7 @@ using Newtonsoft.Json.Linq;
 using MySql.Data.MySqlClient;
 using System.IO;
 using Microsoft.VisualBasic.FileIO;
+using System.Text.RegularExpressions;
 
 
 namespace Serwer
@@ -90,8 +91,8 @@ namespace Serwer
         {
             //getBets();
             //Console.WriteLine("*****");
-            getScores();
-            //VerifyBet();
+            //getScores();
+            VerifyBet();
         }
 
         private async void backgroundWorker1_DoWork(object sender, DoWorkEventArgs e)
@@ -345,14 +346,14 @@ namespace Serwer
 
         }
 
-        public List<Bet> getBets()
+        public List<Bet> getBets(string user)
         {
             DB db = new DB();
 
             DataTable table = new DataTable();
 
             MySqlDataAdapter adapter = new MySqlDataAdapter();
-            MySqlCommand command = new MySqlCommand("SELECT id_meczu, typ, user FROM obstawienia1 ORDER BY id_meczu ASC", db.getConnection());
+            MySqlCommand command = new MySqlCommand($"SELECT matchID, Result, user FROM Bet WHERE user = '{user}' ORDER BY matchID ASC", db.getConnection());
             db.otworzPolaczenie();
             MySqlDataReader rdr = command.ExecuteReader();
             List<Bet> dataList = new List<Bet>();
@@ -383,8 +384,6 @@ namespace Serwer
                 dataList.Add(new Score() { ID = rdr.GetInt16(0), Wynik = rdr.GetString(1)});
             }
 
-            //Console.WriteLine(JsonSerializer.Serialize(dataList));
-
             return dataList;
 
         }
@@ -392,19 +391,32 @@ namespace Serwer
         public int VerifyBet()
         {
             int points = 0;
-            /*
-            for (int i = 0; i < getBets().Count; i++)
+            Regex rx1 = new Regex(@"^[0-9]{1,}");
+            Regex rx2 = new Regex(@"[0-9]{1,}$");
+            List<Score> scores = getScores();
+            foreach (Bet bet in getBets("Wojtek"))
             {
-                if (getBets()[i] == getScores()[i])
+                string score = scores.Find(x => x.ID.Equals(bet.ID)).Wynik;
+                MatchCollection matches = rx1.Matches(score);
+                int HS = Int32.Parse(matches[0].Value);
+                matches = rx2.Matches(getScores().Find(x => x.ID.Equals(bet.ID)).Wynik);
+                int AS = Int32.Parse(matches[0].Value);
+                string result;
+                if (HS>AS)
                 {
-                    points += 10;
+                    result = "H";
+                }
+                else if (AS > HS)
+                {
+                    result = "A";
                 }
                 else
                 {
-                    points = points;
+                    result="D";
                 }
-            }*/
-            //Console.Write(points);
+                if(result == bet.Zaklad) { points += 10; }
+
+            }
             listBox1.Items.Add(points);
             return points;
         }
