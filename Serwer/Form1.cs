@@ -95,45 +95,87 @@ namespace Serwer
         {
             try
             {
-                IPEndPoint IP = (IPEndPoint)klient.Client.RemoteEndPoint;
-                setText("Klient połączył się");
-                netStream = klient.GetStream();
-                if (netStream.CanRead)
+                dynamic json = await getJson();
+                if (json.Type.ToString().Equals("Login"))
                 {
-                    byte[] bytes = new byte[klient.ReceiveBufferSize];
-                    if (klient.Connected)
-                        await netStream.ReadAsync(bytes, 0, (int)klient.ReceiveBufferSize);
-
-                    string returnData = Encoding.UTF8.GetString(bytes.ToArray());
-                    dynamic json = JObject.Parse(returnData);
                     DB db = new DB();
 
                     DataTable table = new DataTable();
 
+                    MySqlDataAdapter adapter = new MySqlDataAdapter();
                     MySqlCommand command = new MySqlCommand("select * from `users` where username ='" + json.Username.ToString() + "' and password = '" + json.Password.ToString() + "'", db.getConnection());
 
                     command.Parameters.Add("@usn", MySqlDbType.VarChar).Value = json.Username.ToString();
                     command.Parameters.Add("@pass", MySqlDbType.VarChar).Value = json.Password.ToString();
-                    adapter = new MySqlDataAdapter();
+
                     adapter.SelectCommand = command;
 
                     adapter.Fill(table);
                     netStream.Flush();
                     if (table.Rows.Count > 0)
                     {
-                        string message = "Correct";
-                        Byte[] data = System.Text.Encoding.ASCII.GetBytes(message);
-                        netStream = klient.GetStream();
-                        netStream.Write(data, 0, data.Length);
+                        message_send("Correct");
                     }
                     else
                     {
-                        string message = "Error";
-                        Byte[] data = System.Text.Encoding.ASCII.GetBytes(message);
-                        netStream = klient.GetStream();
-                        netStream.Write(data, 0, data.Length);
+                        message_send("Error");
                     }
                 }
+                else if (json.Type.ToString().Equals("Register"))
+                {
+                    DB db = new DB();
+                    MySqlCommand command = new MySqlCommand("INSERT INTO users (username, password, email) values ('" + json.Username.ToString() + "', '" + json.Password.ToString() + "', '" + json.Email.ToString() + "' )", db.getConnection());
+
+                    command.Parameters.Add("@usn", MySqlDbType.VarChar).Value = json.Username.ToString();
+                    command.Parameters.Add("@pass", MySqlDbType.VarChar).Value = json.Password.ToString();
+                    command.Parameters.Add("@email", MySqlDbType.VarChar).Value = json.Email.ToString();
+
+                    db.otworzPolaczenie();
+                    //czy user sie powtarza w bazie
+                    if (SprawdzDuplikaty(json.Username.ToString()))
+                    {
+                        message_send("Username_Exists");
+                    }
+                    //czy email sie powtarza w bazie
+                    else if (SprawdzDuplikaty2(json.Email.ToString()))
+                    {
+                        message_send("Email_Exists");
+                    }
+                    //czy hasla sie zgadzaja
+
+                    else
+                    {
+                        if (command.ExecuteNonQuery() == 1)
+                        {
+                            message_send("Username_Created");
+                        }
+                        else
+                        {
+                            message_send("Failure");
+                        }
+                    }
+                    db.zamknijPolaczenie();
+                }
+                else if (json.Type.ToString().Equals("Ranking"))
+                {
+                    DB db = new DB();
+
+                    DataTable table = new DataTable();
+
+                    MySqlDataAdapter adapter = new MySqlDataAdapter();
+                    MySqlCommand command = new MySqlCommand("SELECT username, points FROM users ORDER BY points DESC", db.getConnection());
+                    db.otworzPolaczenie();
+                    MySqlDataReader rdr = command.ExecuteReader();
+                    List<Ranking> dataList = new List<Ranking>();
+                    while (rdr.Read())
+                    {
+                        dataList.Add(new Ranking() {User=rdr.GetString(0), Points = rdr.GetInt32(1)});
+                    }
+                    Byte[] data = System.Text.Encoding.ASCII.GetBytes(JsonSerializer.Serialize(dataList));
+                    netStream = klient.GetStream();
+                    netStream.Write(data, 0, data.Length);
+                }
+
             }
             catch (Exception ex)
             {
@@ -294,6 +336,96 @@ namespace Serwer
         public void db_send()
         {
 
+        }
+
+        public async Task<dynamic> getJson()
+        {
+            try
+            {
+                IPEndPoint IP = (IPEndPoint)klient.Client.RemoteEndPoint;
+                setText("Klient połączył się");
+                netStream = klient.GetStream();
+                if (netStream.CanRead)
+                {
+                    byte[] bytes = new byte[klient.ReceiveBufferSize];
+                    if (klient.Connected)
+                        await netStream.ReadAsync(bytes, 0, (int)klient.ReceiveBufferSize);
+
+                    string returnData = Encoding.UTF8.GetString(bytes.ToArray());
+                    dynamic json = JObject.Parse(returnData);
+                    return json;
+                }
+                return null;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.ToString(), "Błąd");
+                return null;
+            }
+        }
+
+        public Boolean SprawdzDuplikaty(string username)
+        {
+            DB db = new DB();
+
+
+            DataTable table = new DataTable();
+
+            MySqlDataAdapter adapter = new MySqlDataAdapter();
+            MySqlCommand command = new MySqlCommand("SELECT * FROM `users` WHERE username ='" + username + "'", db.getConnection());
+
+            command.Parameters.Add("@usn", MySqlDbType.VarChar).Value = username;
+
+            adapter.SelectCommand = command;
+
+            adapter.Fill(table);
+
+            //czy taki username istnieje
+            if (table.Rows.Count > 0)
+            {
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        public Boolean SprawdzDuplikaty2(string email)
+        {
+            DB db = new DB();
+
+            DataTable table = new DataTable();
+
+            MySqlDataAdapter adapter = new MySqlDataAdapter();
+            MySqlCommand command = new MySqlCommand("SELECT * FROM `users` WHERE email ='" + email + "'", db.getConnection());
+
+            command.Parameters.Add("@email", MySqlDbType.VarChar).Value = email;
+
+            adapter.SelectCommand = command;
+
+            adapter.Fill(table);
+
+            //czy taki email istnieje
+            if (table.Rows.Count > 0)
+            {
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+        }
+        public void message_send(string message)
+        {
+            Byte[] data = System.Text.Encoding.ASCII.GetBytes(message);
+            netStream = klient.GetStream();
+            netStream.Write(data, 0, data.Length);
+        }
+        public class Ranking
+        {
+            public string User { get; set; }
+            public int Points { get; set; }
         }
     }
 }
