@@ -249,7 +249,7 @@ namespace Serwer
                         }
                         else
                         {
-                            message_send("DUPA");
+                            message_send("Wystąpił problem, spróbuj ponownie później");
                         }
                         db.zamknijPolaczenie();
                     }
@@ -445,50 +445,6 @@ namespace Serwer
             }
         }
 
-        public Boolean SprawdzDuplikaty(string username)
-        {
-            DB db = new DB();
-
-
-            DataTable table = new DataTable();
-
-            MySqlDataAdapter adapter = new MySqlDataAdapter();
-            MySqlCommand command = new MySqlCommand("SELECT * FROM `users` WHERE username ='" + username + "'", db.getConnection());
-
-            command.Parameters.Add("@usn", MySqlDbType.VarChar).Value = username;
-
-            adapter.SelectCommand = command;
-
-            adapter.Fill(table);
-
-            //czy taki username istnieje
-            if (table.Rows.Count > 0)
-            {
-                return true;
-            }
-            else
-            {
-                return false;
-            }
-        }
-
-        public Boolean SprawdzDuplikaty2(string email)
-        {
-            DB db = new DB();
-
-            DataTable table = new DataTable();
-
-            MySqlDataAdapter adapter = new MySqlDataAdapter();
-            MySqlCommand command = new MySqlCommand("SELECT * FROM `users` WHERE email ='" + email + "'", db.getConnection());
-
-            command.Parameters.Add("@email", MySqlDbType.VarChar).Value = email;
-
-            adapter.SelectCommand = command;
-
-            adapter.Fill(table);
-
-        }
-
         public List<Bet> getBets(string user)
         {
             DB db = new DB();
@@ -528,16 +484,6 @@ namespace Serwer
             }
 
             return dataList;
-
-            //czy taki email istnieje
-            if (table.Rows.Count > 0)
-            {
-                return true;
-            }
-            else
-            {
-                return false;
-            }
         }
         public void message_send(string message)
         {
@@ -579,32 +525,6 @@ namespace Serwer
             return points;
         }
 
-        public async Task<dynamic> getJson()
-        {
-            try
-            {
-                IPEndPoint IP = (IPEndPoint)klient.Client.RemoteEndPoint;
-                setText("Klient połączył się");
-                netStream = klient.GetStream();
-                if (netStream.CanRead)
-                {
-                    byte[] bytes = new byte[klient.ReceiveBufferSize];
-                    if (klient.Connected)
-                        await netStream.ReadAsync(bytes, 0, (int)klient.ReceiveBufferSize);
-
-                    string returnData = Encoding.UTF8.GetString(bytes.ToArray());
-                    dynamic json = JObject.Parse(returnData);
-                    return json;
-                }
-                return null;
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show(ex.ToString(), "Błąd");
-                return null;
-            }
-        }
-
         public Boolean SprawdzDuplikaty(string username)
         {
             DB db = new DB();
@@ -656,17 +576,6 @@ namespace Serwer
             {
                 return false;
             }
-        }
-        public void message_send(string message)
-        {
-            Byte[] data = System.Text.Encoding.ASCII.GetBytes(message);
-            netStream = klient.GetStream();
-            netStream.Write(data, 0, data.Length);
-        }
-        public class Ranking
-        {
-            public string User { get; set; }
-            public int Points { get; set; }
         }
         public class Bet
         {
