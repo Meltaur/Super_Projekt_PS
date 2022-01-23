@@ -26,26 +26,52 @@ namespace Serwer
         private delegate void Update(string s);
         MySqlDataAdapter adapter;
         MySqlConnection conn;
-        bool flaga = false;
+        bool flaga_s = true;
+        bool flaga = true;
         //MySqlConnection connection = new MySqlConnection("server=db4free.net;port=3306;username=siatek;password=projektps;database=projektps");
-        public Form1()
+        public class Ranking
+        {
+            public string User { get; set; }
+            public int Points { get; set; }
+        }
+        public class Kolejka
+        {
+            public string MatchNumber { get; set; }
+            public string RoundNumber { get; set; }
+            public string Date { get; set; }
+
+            public string HomeTeam { get; set; }
+            public string AwayTeam { get; set; }
+            public string Result { get; set; }
+        }
+        public  Form1()
         {
             InitializeComponent();
         }
 
+
         async private void Start_Click(object sender, EventArgs e)
         {
             //tworzenie serwera
-            try
+            if (flaga_s)
             {
-                server = new TcpListener(IPAddress.Parse("127.0.0.1"), Convert.ToInt32("11000"));
-                server.Start();
-                setText("Serwer rozpoczął pracę");
+                try
+                {
+                    server = new TcpListener(IPAddress.Parse("127.0.0.1"), Convert.ToInt32("11000"));
+                    server.Stop();
+                    server.Start();
+                    setText("Serwer rozpoczął pracę");
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(ex.ToString(), "Błąd");
+                }
+                if (server.Server.Available > 0)
+                {
+                    MessageBox.Show("dupa");
+                }
             }
-            catch (Exception ex)
-            {
-                MessageBox.Show(ex.ToString(), "Błąd");
-            }
+            flaga_s = false;
             // połączenie do sql
             db_connect();
 
@@ -54,17 +80,19 @@ namespace Serwer
             setText("pobieram najnowaszą baze danych...");
             string term_path = pobierz_terminarz();
             setText("uaktualniam baze danych...");
-            update_terminarz_db(term_path);
+            //update_terminarz_db(term_path);
 
             //tworzenie klienta
-            klient = await server.AcceptTcpClientAsync();
-            setText("Klient połączył się");
-
+            if (flaga)
+            {
+                klient = await server.AcceptTcpClientAsync();
+                setText("Klient połączył się");
+            }
+            flaga = false;
             //nasłuchiwanie wiadomości
             if (backgroundWorker1.IsBusy != true)
             {
                 // Start the asynchronous operation.
-                flaga = true;
                 backgroundWorker1.RunWorkerAsync();
             }
         }
@@ -93,93 +121,144 @@ namespace Serwer
 
         private async void backgroundWorker1_DoWork(object sender, DoWorkEventArgs e)
         {
-            try
+            while (klient.Connected)
             {
-                dynamic json = await getJson();
-                if (json.Type.ToString().Equals("Login"))
+                try
                 {
-                    DB db = new DB();
-
-                    DataTable table = new DataTable();
-
-                    MySqlDataAdapter adapter = new MySqlDataAdapter();
-                    MySqlCommand command = new MySqlCommand("select * from `users` where username ='" + json.Username.ToString() + "' and password = '" + json.Password.ToString() + "'", db.getConnection());
-
-                    command.Parameters.Add("@usn", MySqlDbType.VarChar).Value = json.Username.ToString();
-                    command.Parameters.Add("@pass", MySqlDbType.VarChar).Value = json.Password.ToString();
-
-                    adapter.SelectCommand = command;
-
-                    adapter.Fill(table);
-                    netStream.Flush();
-                    if (table.Rows.Count > 0)
+                    dynamic json = await getJson();
+                    //MessageBox.Show(json.ToString());
+                    if (json.Type.ToString().Equals("Login"))
                     {
-                        message_send("Correct");
-                    }
-                    else
-                    {
-                        message_send("Error");
-                    }
-                }
-                else if (json.Type.ToString().Equals("Register"))
-                {
-                    DB db = new DB();
-                    MySqlCommand command = new MySqlCommand("INSERT INTO users (username, password, email) values ('" + json.Username.ToString() + "', '" + json.Password.ToString() + "', '" + json.Email.ToString() + "' )", db.getConnection());
+                        DB db = new DB();
 
-                    command.Parameters.Add("@usn", MySqlDbType.VarChar).Value = json.Username.ToString();
-                    command.Parameters.Add("@pass", MySqlDbType.VarChar).Value = json.Password.ToString();
-                    command.Parameters.Add("@email", MySqlDbType.VarChar).Value = json.Email.ToString();
+                        DataTable table = new DataTable();
 
-                    db.otworzPolaczenie();
-                    //czy user sie powtarza w bazie
-                    if (SprawdzDuplikaty(json.Username.ToString()))
-                    {
-                        message_send("Username_Exists");
-                    }
-                    //czy email sie powtarza w bazie
-                    else if (SprawdzDuplikaty2(json.Email.ToString()))
-                    {
-                        message_send("Email_Exists");
-                    }
-                    //czy hasla sie zgadzaja
+                        MySqlDataAdapter adapter = new MySqlDataAdapter();
+                        MySqlCommand command = new MySqlCommand("select * from `users` where username ='" + json.Username.ToString() + "' and password = '" + json.Password.ToString() + "'", db.getConnection());
 
-                    else
-                    {
-                        if (command.ExecuteNonQuery() == 1)
+                        command.Parameters.Add("@usn", MySqlDbType.VarChar).Value = json.Username.ToString();
+                        command.Parameters.Add("@pass", MySqlDbType.VarChar).Value = json.Password.ToString();
+
+                        adapter.SelectCommand = command;
+
+                        adapter.Fill(table);
+                        netStream.Flush();
+                        if (table.Rows.Count > 0)
                         {
-                            message_send("Username_Created");
+                            message_send("Correct");
                         }
                         else
                         {
-                            message_send("Failure");
+                            message_send("Error");
                         }
                     }
-                    db.zamknijPolaczenie();
-                }
-                else if (json.Type.ToString().Equals("Ranking"))
-                {
-                    DB db = new DB();
-
-                    DataTable table = new DataTable();
-
-                    MySqlDataAdapter adapter = new MySqlDataAdapter();
-                    MySqlCommand command = new MySqlCommand("SELECT username, points FROM users ORDER BY points DESC", db.getConnection());
-                    db.otworzPolaczenie();
-                    MySqlDataReader rdr = command.ExecuteReader();
-                    List<Ranking> dataList = new List<Ranking>();
-                    while (rdr.Read())
+                    else if (json.Type.ToString().Equals("Register"))
                     {
-                        dataList.Add(new Ranking() {User=rdr.GetString(0), Points = rdr.GetInt32(1)});
-                    }
-                    Byte[] data = System.Text.Encoding.ASCII.GetBytes(JsonSerializer.Serialize(dataList));
-                    netStream = klient.GetStream();
-                    netStream.Write(data, 0, data.Length);
-                }
+                        DB db = new DB();
+                        MySqlCommand command = new MySqlCommand("INSERT INTO users (username, password, email) values ('" + json.Username.ToString() + "', '" + json.Password.ToString() + "', '" + json.Email.ToString() + "' )", db.getConnection());
 
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show(ex.ToString(), "Błąd");
+                        command.Parameters.Add("@usn", MySqlDbType.VarChar).Value = json.Username.ToString();
+                        command.Parameters.Add("@pass", MySqlDbType.VarChar).Value = json.Password.ToString();
+                        command.Parameters.Add("@email", MySqlDbType.VarChar).Value = json.Email.ToString();
+
+                        db.otworzPolaczenie();
+                        //czy user sie powtarza w bazie
+                        if (SprawdzDuplikaty(json.Username.ToString()))
+                        {
+                            message_send("Username_Exists");
+                        }
+                        //czy email sie powtarza w bazie
+                        else if (SprawdzDuplikaty2(json.Email.ToString()))
+                        {
+                            message_send("Email_Exists");
+                        }
+                        //czy hasla sie zgadzaja
+
+                        else
+                        {
+                            if (command.ExecuteNonQuery() == 1)
+                            {
+                                message_send("Username_Created");
+                            }
+                            else
+                            {
+                                message_send("Failure");
+                            }
+                        }
+                        db.zamknijPolaczenie();
+                    }
+                    else if (json.Type.ToString().Equals("Ranking"))
+                    {
+                        DB db = new DB();
+
+                        DataTable table = new DataTable();
+
+                        MySqlDataAdapter adapter = new MySqlDataAdapter();
+                        MySqlCommand command = new MySqlCommand("SELECT username, points FROM users ORDER BY points DESC", db.getConnection());
+                        db.otworzPolaczenie();
+                        MySqlDataReader rdr = command.ExecuteReader();
+                        List<Ranking> dataList = new List<Ranking>();
+                        while (rdr.Read())
+                        {
+                            dataList.Add(new Ranking() { User = rdr.GetString(0), Points = rdr.GetInt32(1) });
+                        }
+                        Byte[] data = System.Text.Encoding.ASCII.GetBytes(JsonSerializer.Serialize(dataList));
+                        netStream = klient.GetStream();
+                        netStream.Write(data, 0, data.Length);
+                    }
+                    else if (json.Type.ToString().Equals("Kolejka_info"))
+                    {
+                        DB db = new DB();
+                        string Kolejka = json.kolejka.ToString();
+                        string kolejka_nr = Kolejka.Remove(0, 9);
+
+                        DataTable table = new DataTable();
+
+                        MySqlDataAdapter adapter = new MySqlDataAdapter();
+                        MySqlCommand command = new MySqlCommand("SELECT * FROM terminarz WHERE RoundNumber = '" + kolejka_nr +"'", db.getConnection());
+                        db.otworzPolaczenie();
+                        MySqlDataReader rdr = command.ExecuteReader();
+                        List<Kolejka> dataList = new List<Kolejka>();
+                        while (rdr.Read())
+                        {
+                            dataList.Add(new Kolejka()
+                            {
+                                MatchNumber = rdr.GetString(0),
+                                RoundNumber = rdr.GetString(1),
+                                Date = rdr.GetString(2),
+                                HomeTeam = rdr.GetString(3),
+                                AwayTeam = rdr.GetString(4),
+                                Result = rdr.GetString(5)
+                            });
+                        }
+                        Byte[] data = System.Text.Encoding.ASCII.GetBytes(JsonSerializer.Serialize(dataList));
+                        netStream = klient.GetStream();
+                        netStream.Write(data, 0, data.Length);
+                    }
+                    else if (json.Type.ToString().Equals("Bet"))
+                    {
+                        DB db = new DB();
+                        MySqlCommand command = new MySqlCommand("INSERT INTO Bet values ('" 
+                            + json.User.ToString() + "', '" + json.MatchNumber.ToString() 
+                            + "', '" + json.Result.ToString() + "')", db.getConnection());
+                        db.otworzPolaczenie();
+                        if (command.ExecuteNonQuery() == 1)
+                        {
+                            message_send("OBSTAWIONO");
+                        }
+                        else
+                        {
+                            message_send("DUPA");
+                        }
+                        db.zamknijPolaczenie();
+                    }
+
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(ex.ToString(), "Błąd");
+                }
+                flaga = true;
             }
         }
         public string pobierz_terminarz()
@@ -360,6 +439,7 @@ namespace Serwer
             catch (Exception ex)
             {
                 MessageBox.Show(ex.ToString(), "Błąd");
+                netStream.Close();
                 return null;
             }
         }
@@ -422,10 +502,9 @@ namespace Serwer
             netStream = klient.GetStream();
             netStream.Write(data, 0, data.Length);
         }
-        public class Ranking
-        {
-            public string User { get; set; }
-            public int Points { get; set; }
-        }
+
+
+
+
     }
 }
