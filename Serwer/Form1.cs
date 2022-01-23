@@ -394,7 +394,8 @@ namespace Serwer
             Regex rx1 = new Regex(@"^[0-9]{1,}");
             Regex rx2 = new Regex(@"[0-9]{1,}$");
             List<Score> scores = getScores();
-            foreach (Bet bet in getBets("Wojtek"))
+            List<Bet> bets = getBets("Wojtek");
+            foreach (Bet bet in bets)
             {
                 string score = scores.Find(x => x.ID.Equals(bet.ID)).Wynik;
                 MatchCollection matches = rx1.Matches(score);
