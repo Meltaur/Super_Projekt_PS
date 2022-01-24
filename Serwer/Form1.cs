@@ -54,6 +54,15 @@ namespace Serwer
             public string User { get; set; }
             public int Points { get; set; }
         }
+
+        public class Archive
+        {
+            public int ID { get; set; }
+            public string Typ { get; set; }
+            public string HomeT { get; set; }
+            public string AwayT { get; set; }
+            public string Result { get; set; }
+        }
         public class Kolejka
         {
             public string MatchNumber { get; set; }
@@ -273,6 +282,26 @@ namespace Serwer
                                 message_send("Wystąpił problem, spróbuj ponownie później");
                             }
                             db.zamknijPolaczenie();
+                        }
+                        else if (json.Type.ToString().Equals("Archive"))
+                        {
+
+                            DB db = new DB();
+
+                            DataTable table = new DataTable();
+
+                            MySqlDataAdapter adapter = new MySqlDataAdapter();
+                            MySqlCommand command = new MySqlCommand("SELECT matchID, bet, hometeam, awayteam, result FROM Bet join terminarz on Bet.matchid=terminarz.matchnumber where Bet.USER='" + json.Username.ToString() + "' order by Bet.matchID;", db.getConnection());
+                            db.otworzPolaczenie();
+                            MySqlDataReader rdr = command.ExecuteReader();
+                            List<Archive> dataList = new List<Archive>();
+                            while (rdr.Read())
+                            {
+                                dataList.Add(new Archive() { ID = rdr.GetInt32(0), Typ = rdr.GetString(1), HomeT = rdr.GetString(2), AwayT = rdr.GetString(3), Result = rdr.GetString(4) });
+                            }
+                            Byte[] data = System.Text.Encoding.ASCII.GetBytes(JsonSerializer.Serialize(dataList));
+                            netStream = klient.GetStream();
+                            netStream.Write(data, 0, data.Length);
                         }
 
                     }
