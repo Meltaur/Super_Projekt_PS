@@ -99,8 +99,8 @@ namespace Serwer
             setText("pobieram najnowaszą baze danych...");
             string term_path = pobierz_terminarz();
             setText("uaktualniam baze danych...");
+            updatePoints();
             //update_terminarz_db(term_path);
-
             //tworzenie klienta
 
             //nasłuchiwanie wiadomości
@@ -474,7 +474,7 @@ namespace Serwer
             DataTable table = new DataTable();
 
             MySqlDataAdapter adapter = new MySqlDataAdapter();
-            MySqlCommand command = new MySqlCommand($"SELECT matchID, Result, user FROM Bet WHERE user = '{user}' ORDER BY matchID ASC", db.getConnection());
+            MySqlCommand command = new MySqlCommand($"SELECT matchID, Bet, user FROM Bet WHERE user = '{user}' ORDER BY matchID ASC", db.getConnection());
             db.otworzPolaczenie();
             MySqlDataReader rdr = command.ExecuteReader();
             List<Bet> dataList = new List<Bet>();
@@ -514,37 +514,68 @@ namespace Serwer
             netStream.Write(data, 0, data.Length);
         }
 
-        public int VerifyBet()
+        public int VerifyBet(string user)
         {
             int points = 0;
             Regex rx1 = new Regex(@"^[0-9]{1,}");
             Regex rx2 = new Regex(@"[0-9]{1,}$");
             List<Score> scores = getScores();
-            foreach (Bet bet in getBets("Wojtek"))
+            foreach (Bet bet in getBets(user))
             {
-                string score = scores.Find(x => x.ID.Equals(bet.ID)).Wynik;
-                MatchCollection matches = rx1.Matches(score);
-                int HS = Int32.Parse(matches[0].Value);
-                matches = rx2.Matches(getScores().Find(x => x.ID.Equals(bet.ID)).Wynik);
-                int AS = Int32.Parse(matches[0].Value);
-                string result;
-                if (HS>AS)
+                try
                 {
-                    result = "H";
+                    string score = scores.Find(x => x.ID.Equals(bet.ID)).Wynik;
+                    MatchCollection matches = rx1.Matches(score);
+                    int HS = Int32.Parse(matches[0].Value);
+                    matches = rx2.Matches(getScores().Find(x => x.ID.Equals(bet.ID)).Wynik);
+                    int AS = Int32.Parse(matches[0].Value);
+                    string result;
+                    if (HS > AS)
+                    {
+                        result = "H";
+                    }
+                    else if (AS > HS)
+                    {
+                        result = "A";
+                    }
+                    else
+                    {
+                        result = "D";
+                    }
+                    if (result == bet.Zaklad) { points += 10; }
                 }
-                else if (AS > HS)
+                catch(Exception ex)
                 {
-                    result = "A";
+                    Console.WriteLine("Nie ma jeszcze wyniku");
                 }
-                else
-                {
-                    result="D";
-                }
-                if(result == bet.Zaklad) { points += 10; }
+
 
             }
-            listBox1.Items.Add(points);
             return points;
+        }
+
+        public void updatePoints()
+        {
+            DB db = new DB();
+
+            DataTable table = new DataTable();
+
+            MySqlDataAdapter adapter = new MySqlDataAdapter();
+            MySqlCommand command = new MySqlCommand($"SELECT username FROM users", db.getConnection());
+            db.otworzPolaczenie();
+            MySqlDataReader rdr = command.ExecuteReader();
+            List<Ranking> dataList = new List<Ranking>();
+            while (rdr.Read())
+            {
+                dataList.Add(new Ranking() { User = rdr.GetString(0), Points = VerifyBet(rdr.GetString(0)) });
+            }
+            rdr.Close();
+            foreach(Ranking data in dataList)
+            {
+                MySqlCommand command2 = new MySqlCommand($"UPDATE users SET points = '{data.Points}' WHERE username = '{data.User}'", db.getConnection());
+                command2.ExecuteNonQuery();
+            }
+
         }
 
         public Boolean SprawdzDuplikaty(string username)
